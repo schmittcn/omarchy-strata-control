@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.schmittcn.strata-control",
+  "name": "Strata Control",
+  "version": "0.1.0",
+  "author": "schmittcn",
+  "license": "Apache-2.0",
+  "description": "Strata local LLM server in the bar: start and stop models, follow the log, and keep your own settings in a patch file that survives updates.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Strata Control",
+    "description": "Served model at a glance; click for models, server actions and your settings.",
+    "category": "AI",
+    "aliases": [
+      "llm",
+      "ai",
+      "local-llm"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 30,
+      "strataCommand": "strata",
+      "updateCommand": "strata update",
+      "updateCheckCommand": ""
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 2,
+        "max": 600,
+        "step": 1,
+        "defaultValue": 30
+      },
+      {
+        "key": "strataCommand",
+        "type": "string",
+        "label": "Strata command",
+        "defaultValue": "strata"
+      },
+      {
+        "key": "updateCommand",
+        "type": "string",
+        "label": "Update command",
+        "defaultValue": "strata update"
+      },
+      {
+        "key": "updateCheckCommand",
+        "type": "string",
+        "label": "Update check command (empty: strata update --check)",
+        "defaultValue": ""
+      }
+    ]
+  }
+}
