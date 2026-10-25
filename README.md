@@ -221,6 +221,9 @@ strata-profiles update-check   is there a newer Strata?
 - **A model is missing that `strata` in a terminal shows** (or the other way round): the plugin uses another Strata
   copy than your terminal; set `strataCommand`.
 
+Anything else, or an idea: [open an issue](https://github.com/schmittcn/omarchy-strata-control/issues) with what you
+clicked, what the popup showed, and the output of `strata --version`.
+
 ## Remove
 
 ```sh
