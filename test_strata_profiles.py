@@ -29,7 +29,7 @@ assert cfg["args"] == ["--vram-reserve-mib", "2700", "--kv", "q8_0"]
 
 # our profiles: prefixed and valid for `strata profile`; a same-named profile pointing elsewhere is not ours
 assert sp.profile_name("swift-iq3_s") == "omarchy-swift-iq3_s"
-assert sp.profile_name("Qwen3.6.UD") == "omarchy-qwen3-6-ud"
+assert sp.profile_name("Swift.IQ3.UD") == "omarchy-swift-iq3-ud"
 out = sp.CONFIGS / "x.json"
 assert sp.ours({"source_config": str(sp.CONFIGS / "y.json")}, out)
 assert not sp.ours({"source_config": "/home/u/Strata/strata-x.json"}, out)

@@ -24,8 +24,8 @@ patches apply in file order, so put "*" first and specific ids after it:
 
   {
     "*":       {"profile": {"port": 8095}, "env": {"STRATA_HIP_PROMPT_F16": "1"}},
-    "ornith-*": {"args": {"--kv": "q8_0", "--mtp": "1"},
-                 "set": {"sampling": {"temperature": 0.6}}}
+    "coder-*": {"args": {"--max-context": "131072"},
+                "set": {"sampling": {"temperature": 0.6}}}
   }
 
   args     "--flag": "value" sets or appends it, true adds a bare flag, null removes it

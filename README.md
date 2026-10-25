@@ -41,6 +41,8 @@ That is all you need. To change how a model runs (context, port, VRAM headroom, 
 
 The bar icon is dim while no model is ready; its tooltip names the model and its state.
 
+![The popup without and with the mini monitor](screenshots/popup-and-monitor.png)
+
 | Part of the popup | What it does |
 |---|---|
 | Header | The served model, its state (starting, ready, stopping) and port. **TUI Monitor** opens `strata monitor` in a terminal; **Web UI** opens the model's chat page in your browser. |
@@ -69,6 +71,10 @@ The running model gets one more line, "in use": what it really takes, measured f
 
 The bar itself checks the state every 30 seconds (setting below).
 
+The popup follows your Omarchy theme:
+
+![The popup in Matte Black, Tokyo Night, Catppuccin Latte and Gruvbox](screenshots/themes.png)
+
 **From the shell**, e.g. for a keybind:
 
 ```sh
@@ -94,8 +100,8 @@ yours in `~/.config/strata/patches.json` and lays them over Strata's configs eve
 
 With an empty file (the default) models run exactly as Strata set them up.
 
-**Example.** Serve every model on port 8095, give all Ornith models a q8_0 cache and their own sampling, and leave
-2 GiB of VRAM free for the desktop:
+**Example.** Serve every model on port 8095, give the Coder models a shorter context and their own sampling, and
+leave 2 GiB of VRAM free for the desktop:
 
 ```json
 {
@@ -105,8 +111,8 @@ With an empty file (the default) models run exactly as Strata set them up.
   "coder-*, swift-*": {
     "args": {"--vram-reserve-mib": "2700"}
   },
-  "ornith-*": {
-    "args": {"--kv": "q8_0", "--expert-vram": "5.5"},
+  "coder-*": {
+    "args": {"--max-context": "131072"},
     "set": {"sampling": {"temperature": 0.6, "top_p": 0.95, "top_k": 20}}
   }
 }
@@ -136,7 +142,7 @@ keep VRAM free:
 - `--vram-reserve-mib N` (most models: Qwen3.8 Coder, Swift, ...): VRAM kept free when the engine sizes its expert
   cache. The engine allocates a few hundred MiB more afterwards (about 650 MiB on a 16 GB card), so for 2 GiB really
   free set about 2700.
-- `--expert-vram GiB` (Qwen3.6-based models such as Ornith, `"arch": "qwen35moe"` in the run config): these ignore the
+- `--expert-vram GiB` (Qwen3.6-35B-A3B models, `"arch": "qwen35moe"` in the run config): these ignore the
   reserve and fill the VRAM. The value caps the experts' share; lower leaves more room but answers slower. The engine
   log (`strata-<id>.log` in the Strata folder) shows the VRAM free before the experts ("... GiB of VRAM free"). For
   N GiB left free: cap = that figure − N − about 0.5 (0.7 with the picture reader on). Check with the mini monitor.
