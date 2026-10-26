@@ -214,8 +214,8 @@ or packages; report problems in Strata to Strata
 - Strata pins Pillow 12.3.0, which has known vulnerabilities in image decoding
   ([GHSA-78g4-xqwv-q3g8](https://github.com/python-pillow/Pillow/security/advisories/GHSA-78g4-xqwv-q3g8) and
   others). With the picture reader on, a crafted image in a request can crash the server or worse. In a source
-  checkout on Python 3.11+, update it: `.venv/bin/python -m pip install "pillow>=13"`; a terminal install ships its
-  own Python, so wait for a Strata release there.
+  checkout on Python 3.11+, update Pillow in its `.venv` to 13.0.0 or newer; a terminal install ships its own Python,
+  so wait for a Strata release there.
 
 ## The helper from a terminal
 
