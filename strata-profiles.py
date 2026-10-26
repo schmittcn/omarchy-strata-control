@@ -148,6 +148,21 @@ def patch_config(cfg, patch):
             cfg[k] = v
 
 
+def write_private(path, text):
+    """Write text for the owner only (0600), atomically: a run config can hold Strata's api_key."""
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.unlink(missing_ok=True)
+    with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def private_dir(path):
+    """Create path for the owner only (0700), and tighten it if an older version made it readable."""
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.chmod(0o700)
+
+
 def matching(patches, model_id):
     return [p for globs, p in patches.items()
             if any(fnmatch.fnmatch(model_id, g.strip()) for g in globs.split(","))]
@@ -157,7 +172,7 @@ def apply(ids=None):
     """Rebuild the patched configs and our profiles; returns the ids whose profile is ours to start."""
     patches = load_patches()
     ready = set()
-    CONFIGS.mkdir(parents=True, exist_ok=True)
+    private_dir(CONFIGS)
     for m in models():
         mid = m["id"]
         if ids and mid not in ids:
@@ -171,7 +186,9 @@ def apply(ids=None):
         new = json.dumps(cfg, indent=1) + "\n"
         changed = not out.exists() or out.read_text() != new
         if changed:
-            out.write_text(new)
+            write_private(out, new)
+        else:
+            out.chmod(0o600)  # copies an older version wrote with the default umask
 
         name = profile_name(mid)
         prof = PROFILES / f"{name}.json"
@@ -432,7 +449,7 @@ def update_check():
 def edit():
     if not PATCHES.exists():
         CONF.mkdir(parents=True, exist_ok=True)
-        PATCHES.write_text("{\n}\n")
+        write_private(PATCHES, "{\n}\n")
     print(PATCHES)
 
 

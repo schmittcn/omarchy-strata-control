@@ -212,7 +212,7 @@ strata-profiles update-check   is there a newer Strata?
 | Path | What |
 |---|---|
 | `~/.config/strata/patches.json` | Your settings. |
-| `~/.config/strata/configs/<id>.json` | The patched run configs (rebuilt by Apply; do not edit). |
+| `~/.config/strata/configs/<id>.json` | The patched run configs (rebuilt by Apply; do not edit). Readable by you only, like Strata's own profiles: a run config can hold the server's `api_key`. |
 | `~/.config/strata/profiles/omarchy-<id>.json` | The plugin's Strata profiles, one per model. |
 | `~/.local/state/strata/runtime/omarchy-<id>.server.log` | The server log (**Log**). |
 | `strata-<id>.log` in the Strata folder | The engine log: placement, VRAM, speed. |
