@@ -203,6 +203,20 @@ echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/usr/bin/chmod a+r /sys%p/ener
   Strata when that fix is released, or turn image generation off (`setup --images no`). Models without image
   generation are not affected.
 
+**Known risks in Strata itself.** This plugin is maintained separately from Strata and does not change Strata's code
+or packages; report problems in Strata to Strata
+([security policy](https://github.com/Niko1221/Strata/blob/main/SECURITY.md)). Known at Strata `main` 4b9e05a2
+(2026-10-25):
+
+- Strata's web page sends a question given as a `/?q=...` link on its own, with the API key saved in your browser and
+  the MCP tools turned on there. Don't open such links from sources you don't trust, especially with MCP tools on.
+  The plugin's **Web UI** button opens the start page without `?q=`.
+- Strata pins Pillow 12.3.0, which has known vulnerabilities in image decoding
+  ([GHSA-78g4-xqwv-q3g8](https://github.com/python-pillow/Pillow/security/advisories/GHSA-78g4-xqwv-q3g8) and
+  others). With the picture reader on, a crafted image in a request can crash the server or worse. In a source
+  checkout on Python 3.11+, update it: `.venv/bin/python -m pip install "pillow>=13"`; a terminal install ships its
+  own Python, so wait for a Strata release there.
+
 ## The helper from a terminal
 
 The popup's work is done by `strata-profiles.py` in the plugin folder, which also runs on its own:
