@@ -50,4 +50,17 @@ with tempfile.TemporaryDirectory() as d:
     assert f.stat().st_mode & 0o777 == 0o600 and f.read_text() == '{"api_key": "k"}'
     assert [p.name for p in folder.iterdir()] == ["m.json"]
 
+# image generation starts only on a Strata that hands the prompt to sd-cli in a file, not on its command line
+with tempfile.TemporaryDirectory() as d:
+    serve = Path(d) / "serve"
+    serve.mkdir()
+    images_on = {"images": {"exe": "sd-cli"}}
+    assert sp.image_start_refused({"args": []}, d) is None                  # no image generation: never refused
+    assert sp.image_start_refused({"images": None}, d) is None
+    assert sp.image_start_refused(images_on, d)                             # no serve/images.py: refused
+    (serve / "images.py").write_text('cmd = ["sd-cli", "-p", job["prompt"]]')
+    assert "command line" in sp.image_start_refused(images_on, d)
+    (serve / "images.py").write_text('cmd = ["sd-cli", "--prompt-file", prompt_file]')
+    assert sp.image_start_refused(images_on, d) is None
+
 print("ok")

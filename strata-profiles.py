@@ -228,11 +228,33 @@ def stop():
             strata("runtime", "stop", "--profile", profile_name(m["id"]), "--wait", "60")
 
 
+def image_start_refused(cfg, root):
+    """Why a model must not start, or None.  Image generation ("images" in the run config) runs sd-cli for each
+    request; Strata versions before Niko1221/Strata#4204 put the prompt on its command line, where every local
+    account can read it (#4202).  Checked in the server code of the Strata copy that serves, not by version number."""
+    if not cfg.get("images"):
+        return None
+    try:
+        if "--prompt-file" in (Path(root) / "serve" / "images.py").read_text():
+            return None
+    except OSError:
+        pass
+    return ("image generation is on for this model (\"images\" in its run config), and this Strata "
+            f"({root or 'unknown folder'}) passes image prompts to sd-cli on its command line, where other local "
+            "accounts can read them. Update Strata to a version with the fix (Niko1221/Strata#4204), or turn image "
+            "generation off (setup --images no). See Privacy in the plugin's README.")
+
+
 def start(mid):
-    if mid not in {m["id"] for m in models()}:
-        sys.exit(f"unknown model {mid}; known: {' '.join(m['id'] for m in models())}")
+    listing = strata_json("models", "list", "--installed")
+    known = [m["id"] for m in listing.get("models", [])]
+    if mid not in known:
+        sys.exit(f"unknown model {mid}; known: {' '.join(known)}")
     if mid not in apply([mid]):
         sys.exit(f"{mid} not started: its profile {profile_name(mid)} is not this tool's (see above)")
+    why = image_start_refused(json.loads((CONFIGS / f"{mid}.json").read_text()), listing.get("install_dir", ""))
+    if why:
+        sys.exit(f"{mid} not started: {why}")
     stop()
     print(f"starting {mid}, loading can take a few minutes ...", flush=True)
     p = subprocess.run([*STRATA, "runtime", "start", "--profile", profile_name(mid), "--wait", "600"])

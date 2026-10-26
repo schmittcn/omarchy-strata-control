@@ -193,8 +193,12 @@ echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/usr/bin/chmod a+r /sys%p/ener
 - The plugin runs Strata's run configs as they are and adds no features. If you turned on Strata's optional image
   generation (setup's `--images`, an `"images"` section in the run config), Strata passes each image prompt to its
   `sd-cli` helper as a command-line argument, and other accounts on this PC can see process arguments while an image
-  is generated. That is Strata's behaviour, with or without this plugin. On a PC with other accounts, mount `/proc`
-  with `hidepid=2` (process arguments of other users hidden), or leave image generation off.
+  is generated. That is Strata's behaviour, with or without this plugin
+  ([Niko1221/Strata#4202](https://github.com/Niko1221/Strata/issues/4202)). So the plugin does not start a model with
+  image generation on a Strata that still does this: it says why, and starts it once your Strata hands the prompt
+  over in a private file ([Niko1221/Strata#4204](https://github.com/Niko1221/Strata/pull/4204)). Until then, update
+  Strata when that fix is released, or turn image generation off (`setup --images no`). Models without image
+  generation are not affected.
 
 ## The helper from a terminal
 
