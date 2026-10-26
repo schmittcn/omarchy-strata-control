@@ -186,6 +186,16 @@ chmod a+r /sys/class/powercap/intel-rapl:0/energy_uj
 echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/usr/bin/chmod a+r /sys%p/energy_uj"' > /etc/udev/rules.d/90-rapl-read.rules
 ```
 
+## Privacy
+
+- The patched run configs in `~/.config/strata/configs/` can hold your server's `api_key`; the plugin keeps them
+  readable by you only (0600 in a 0700 folder), like Strata's own profiles.
+- The plugin runs Strata's run configs as they are and adds no features. If you turned on Strata's optional image
+  generation (setup's `--images`, an `"images"` section in the run config), Strata passes each image prompt to its
+  `sd-cli` helper as a command-line argument, and other accounts on this PC can see process arguments while an image
+  is generated. That is Strata's behaviour, with or without this plugin. On a PC with other accounts, mount `/proc`
+  with `hidepid=2` (process arguments of other users hidden), or leave image generation off.
+
 ## The helper from a terminal
 
 The popup's work is done by `strata-profiles.py` in the plugin folder, which also runs on its own:
