@@ -50,17 +50,22 @@ with tempfile.TemporaryDirectory() as d:
     assert f.stat().st_mode & 0o777 == 0o600 and f.read_text() == '{"api_key": "k"}'
     assert [p.name for p in folder.iterdir()] == ["m.json"]
 
-# image generation starts only on a Strata that hands the prompt to sd-cli in a file, not on its command line
+# image generation runs only on Strata code that hands the prompt to sd-cli in a file, not on its command line
 with tempfile.TemporaryDirectory() as d:
     serve = Path(d) / "serve"
     serve.mkdir()
-    images_on = {"images": {"exe": "sd-cli"}}
-    assert sp.image_start_refused({"args": []}, d) is None                  # no image generation: never refused
-    assert sp.image_start_refused({"images": None}, d) is None
-    assert sp.image_start_refused(images_on, d)                             # no serve/images.py: refused
+    assert not sp.image_prompts_private(d)                               # no serve/images.py
+    assert not sp.image_prompts_private(None)                            # serving copy not found
     (serve / "images.py").write_text('cmd = ["sd-cli", "-p", job["prompt"]]')
-    assert "command line" in sp.image_start_refused(images_on, d)
+    assert not sp.image_prompts_private(d)
     (serve / "images.py").write_text('cmd = ["sd-cli", "--prompt-file", prompt_file]')
-    assert sp.image_start_refused(images_on, d) is None
+    assert sp.image_prompts_private(d)
+# the serving copy is the server process's working directory, not the install_dir `models list` reports
+real = sp.strata_json
+sp.strata_json = lambda *a: {"child_pid": os.getpid()}
+assert sp.serving_root("p") == os.getcwd()
+sp.strata_json = lambda *a: {"state": "stopped", "child_pid": None}
+assert sp.serving_root("p") is None
+sp.strata_json = real
 
 print("ok")

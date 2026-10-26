@@ -194,9 +194,12 @@ echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/usr/bin/chmod a+r /sys%p/ener
   generation (setup's `--images`, an `"images"` section in the run config), Strata passes each image prompt to its
   `sd-cli` helper as a command-line argument, and other accounts on this PC can see process arguments while an image
   is generated. That is Strata's behaviour, with or without this plugin
-  ([Niko1221/Strata#4202](https://github.com/Niko1221/Strata/issues/4202)). So the plugin does not start a model with
-  image generation on a Strata that still does this: it says why, and starts it once your Strata hands the prompt
-  over in a private file ([Niko1221/Strata#4204](https://github.com/Niko1221/Strata/pull/4204)). Until then, update
+  ([Niko1221/Strata#4202](https://github.com/Niko1221/Strata/issues/4202)). So the plugin does not run a model with
+  image generation on a Strata that still does this. It checks the code the started server actually runs (the
+  server process's folder, which can differ from the folder your models are in) while the model is still loading,
+  before the server opens its port, and if that code lacks the fix it stops the server and says why. It runs once
+  your Strata hands the prompt over in a private file
+  ([Niko1221/Strata#4204](https://github.com/Niko1221/Strata/pull/4204)). Until then, update
   Strata when that fix is released, or turn image generation off (`setup --images no`). Models without image
   generation are not affected.
 

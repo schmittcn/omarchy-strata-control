@@ -40,6 +40,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 CONF = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "strata"
@@ -228,37 +229,63 @@ def stop():
             strata("runtime", "stop", "--profile", profile_name(m["id"]), "--wait", "60")
 
 
-def image_start_refused(cfg, root):
-    """Why a model must not start, or None.  Image generation ("images" in the run config) runs sd-cli for each
-    request; Strata versions before Niko1221/Strata#4204 put the prompt on its command line, where every local
-    account can read it (#4202).  Checked in the server code of the Strata copy that serves, not by version number."""
-    if not cfg.get("images"):
-        return None
+def image_prompts_private(root):
+    """Does the Strata code in `root` hand image prompts to sd-cli in a file (--prompt-file, Niko1221/Strata#4204)?
+    Before that fix they went on sd-cli's command line, where every local account can read them (#4202).
+    Checked in the code, not by version number."""
     try:
-        if "--prompt-file" in (Path(root) / "serve" / "images.py").read_text():
-            return None
-    except OSError:
-        pass
-    return ("image generation is on for this model (\"images\" in its run config), and this Strata "
-            f"({root or 'unknown folder'}) passes image prompts to sd-cli on its command line, where other local "
-            "accounts can read them. Update Strata to a version with the fix (Niko1221/Strata#4204), or turn image "
-            "generation off (setup --images no). See Privacy in the plugin's README.")
+        return "--prompt-file" in (Path(root) / "serve" / "images.py").read_text()
+    except (OSError, TypeError):
+        return False
+
+
+def serving_root(profile):
+    """The folder whose code the profile's server runs, or None.  Strata's runtime starts the server as
+    `python -m serve.server` with that folder as its working directory (strata_control/runtime.py); it need not be
+    the install_dir `models list` reports (STRATA_INSTALL_DIR, or a terminal install serving a setup folder)."""
+    pid = strata_json("runtime", "status", "--profile", profile).get("child_pid")
+    try:
+        return os.readlink(f"/proc/{int(pid)}/cwd")
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+IMAGES_REFUSED = ("image generation is on for this model (\"images\" in its run config), and the Strata that serves it "
+                  "({}) passes image prompts to sd-cli on its command line, where other local accounts can read them. "
+                  "Update Strata to a version with the fix (Niko1221/Strata#4204), or turn image generation off "
+                  "(setup --images no). See Privacy in the plugin's README.")
 
 
 def start(mid):
-    listing = strata_json("models", "list", "--installed")
-    known = [m["id"] for m in listing.get("models", [])]
-    if mid not in known:
-        sys.exit(f"unknown model {mid}; known: {' '.join(known)}")
+    if mid not in {m["id"] for m in models()}:
+        sys.exit(f"unknown model {mid}; known: {' '.join(m['id'] for m in models())}")
     if mid not in apply([mid]):
         sys.exit(f"{mid} not started: its profile {profile_name(mid)} is not this tool's (see above)")
-    why = image_start_refused(json.loads((CONFIGS / f"{mid}.json").read_text()), listing.get("install_dir", ""))
-    if why:
-        sys.exit(f"{mid} not started: {why}")
+    images = bool(json.loads((CONFIGS / f"{mid}.json").read_text()).get("images"))
     stop()
+    name = profile_name(mid)
     print(f"starting {mid}, loading can take a few minutes ...", flush=True)
-    p = subprocess.run([*STRATA, "runtime", "start", "--profile", profile_name(mid), "--wait", "600"])
-    sys.exit(p.returncode)
+    p = subprocess.Popen([*STRATA, "runtime", "start", "--profile", name, "--wait", "600"])
+    if images:
+        # Which code serves is only certain once the server process exists.  It loads the model before it opens
+        # its port (serve/server.py), so this check comes before it can take an image request.
+        root, deadline = None, time.monotonic() + 120
+        while root is None and p.poll() is None and time.monotonic() < deadline:
+            root = serving_root(name)
+            if root is None:
+                time.sleep(0.2)
+        if root is None and p.poll() in (None, 0):
+            root = serving_root(name)
+        if root is None and p.poll() not in (None, 0):
+            sys.exit(p.returncode)              # it did not start: nothing serves
+        if not image_prompts_private(root):
+            print(f"stopping {mid} ...", flush=True)
+            strata("runtime", "stop", "--profile", name, "--wait", "60", check=False)   # a server stopped while loading reports server_stop_failed
+            p.wait()
+            now = strata_json("runtime", "status", "--profile", name).get("state", "unknown")
+            sys.exit(f"{mid} {'stopped' if now == 'stopped' else 'NOT stopped (' + now + ')'}: "
+                     + IMAGES_REFUSED.format(root or "not found"))
+    sys.exit(p.wait())
 
 
 def measured(root_pid):
