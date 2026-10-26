@@ -288,8 +288,8 @@ def serving_process(profile):
         return None
 
 
-def refusals(cfg, pid, root):
-    """Why the server of a model with run config `cfg` must not keep running, checked in its code and its Python."""
+def risks(cfg, pid, root):
+    """Known risks of the Strata serving a model with run config `cfg`, checked in its code and its Python."""
     why = []
     if web_sends_links(root):
         why.append(f"Strata's web page ({root}/serve/web/app.js) sends a question from a /?q=... link by itself, with "
@@ -319,8 +319,8 @@ def start(mid):
     name = profile_name(mid)
     print(f"starting {mid}, loading can take a few minutes ...", flush=True)
     p = subprocess.Popen([*STRATA, "runtime", "start", "--profile", name, "--wait", "600"])
-    # Which code and which Python serve is only certain once the server process exists.  It loads the model before
-    # it opens its port (serve/server.py), so these checks come before it can take a request.
+    # Which code and which Python serve is only certain once the server process exists, so the checks run once it
+    # does; the model starts either way, and the risks found are shown with what to change.
     proc, deadline = None, time.monotonic() + 120
     while proc is None and p.poll() is None and time.monotonic() < deadline:
         proc = serving_process(name)
@@ -330,14 +330,11 @@ def start(mid):
         proc = serving_process(name)
     if proc is None and p.poll() not in (None, 0):
         sys.exit(p.returncode)                  # it did not start: nothing serves
-    why = refusals(cfg, *proc) if proc else ["the server process to check could not be found."]
+    why = risks(cfg, *proc) if proc else ["the server process could not be found, so the checks did not run."]
+    for line in why:
+        print(f"warning: {line}", flush=True)
     if why:
-        print(f"stopping {mid} ...", flush=True)
-        strata("runtime", "stop", "--profile", name, "--wait", "60", check=False)   # a server stopped while loading reports server_stop_failed
-        p.wait()
-        now = strata_json("runtime", "status", "--profile", name).get("state", "unknown")
-        sys.exit(f"{mid} {'stopped' if now == 'stopped' else 'NOT stopped (' + now + ')'}, because\n- "
-                 + "\n- ".join(why) + "\nSee Privacy in the plugin's README.")
+        print("See Privacy in the plugin's README.", flush=True)
     sys.exit(p.wait())
 
 

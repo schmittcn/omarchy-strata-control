@@ -96,11 +96,11 @@ with tempfile.TemporaryDirectory() as d:
     (Path(d) / "serve" / "web" / "app.js").write_text("// no ?q= shortcut\n")
     real_pillow = sp.server_pillow
     sp.server_pillow = lambda pid, root: ("/py", "12.3.0")
-    assert sp.refusals({"args": []}, 1, d) == []                         # picture reader off: Pillow does not matter
-    assert len(sp.refusals({"vision": {"mmproj": "m"}}, 1, d)) == 1
+    assert sp.risks({"args": []}, 1, d) == []                         # picture reader off: Pillow does not matter
+    assert len(sp.risks({"vision": {"mmproj": "m"}}, 1, d)) == 1
     sp.server_pillow = lambda pid, root: ("/py", "13.0.0")
-    assert sp.refusals({"vision": {"mmproj": "m"}}, 1, d) == []
-    assert len(sp.refusals({"images": {"exe": "sd-cli"}}, 1, d)) == 1     # no serve/images.py here
+    assert sp.risks({"vision": {"mmproj": "m"}}, 1, d) == []
+    assert len(sp.risks({"images": {"exe": "sd-cli"}}, 1, d)) == 1     # no serve/images.py here
     sp.server_pillow = real_pillow
 
 print("ok")
