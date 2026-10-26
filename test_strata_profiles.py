@@ -63,9 +63,44 @@ with tempfile.TemporaryDirectory() as d:
 # the serving copy is the server process's working directory, not the install_dir `models list` reports
 real = sp.strata_json
 sp.strata_json = lambda *a: {"child_pid": os.getpid()}
-assert sp.serving_root("p") == os.getcwd()
+assert sp.serving_process("p") == (os.getpid(), os.getcwd())
 sp.strata_json = lambda *a: {"state": "stopped", "child_pid": None}
-assert sp.serving_root("p") is None
+assert sp.serving_process("p") is None
 sp.strata_json = real
+
+# /?q= links: the page may fill in the question, not send it (Niko1221/Strata#4221); unreadable counts as sending
+with tempfile.TemporaryDirectory() as d:
+    web = Path(d) / "serve" / "web"
+    web.mkdir(parents=True)
+    assert sp.web_sends_links(d)                                         # no page to check
+    (web / "app.js").write_text('const startQuestion = new URLSearchParams(location.search).get("q");\n'
+                                'loadHealth().then(() => { if (startQuestion) { $("input").value = startQuestion; send(); } });\n'
+                                '$("send").onclick = () => send();\n')
+    assert sp.web_sends_links(d)
+    (web / "app.js").write_text('const startQuestion = new URLSearchParams(location.search).get("q");\n'
+                                'loadHealth().then(() => { if (startQuestion) { $("input").value = startQuestion; $("input").focus(); } });\n'
+                                '$("send").onclick = () => send();\n')
+    assert not sp.web_sends_links(d)
+    (web / "app.js").write_text('$("send").onclick = () => send();\n')    # no ?q= shortcut at all
+    assert not sp.web_sends_links(d)
+
+# Pillow in the server's Python: 13+ or none; anything else (or unknown) refuses a model with the picture reader on
+assert sp.pillow_safe("13.0.0") and sp.pillow_safe("14.1") and sp.pillow_safe("none")
+assert not sp.pillow_safe("12.3.0") and not sp.pillow_safe(None) and not sp.pillow_safe("")
+exe, version = sp.server_pillow(os.getpid(), os.getcwd())             # asks this very process's Python
+assert exe and version and (version == "none" or version[0].isdigit()), (exe, version)
+assert sp.server_pillow(2**22 + 12345, "/") == (None, None)            # no such process
+
+with tempfile.TemporaryDirectory() as d:
+    (Path(d) / "serve" / "web").mkdir(parents=True)
+    (Path(d) / "serve" / "web" / "app.js").write_text("// no ?q= shortcut\n")
+    real_pillow = sp.server_pillow
+    sp.server_pillow = lambda pid, root: ("/py", "12.3.0")
+    assert sp.refusals({"args": []}, 1, d) == []                         # picture reader off: Pillow does not matter
+    assert len(sp.refusals({"vision": {"mmproj": "m"}}, 1, d)) == 1
+    sp.server_pillow = lambda pid, root: ("/py", "13.0.0")
+    assert sp.refusals({"vision": {"mmproj": "m"}}, 1, d) == []
+    assert len(sp.refusals({"images": {"exe": "sd-cli"}}, 1, d)) == 1     # no serve/images.py here
+    sp.server_pillow = real_pillow
 
 print("ok")

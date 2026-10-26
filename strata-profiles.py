@@ -239,21 +239,74 @@ def image_prompts_private(root):
         return False
 
 
-def serving_root(profile):
-    """The folder whose code the profile's server runs, or None.  Strata's runtime starts the server as
-    `python -m serve.server` with that folder as its working directory (strata_control/runtime.py); it need not be
-    the install_dir `models list` reports (STRATA_INSTALL_DIR, or a terminal install serving a setup folder)."""
+def web_sends_links(root):
+    """Does the web page in `root` send a question from a /?q=... link by itself?  Any page can link there, and the
+    request carries the browser's saved API key and the MCP tools turned on in it.  Fixed when the page only fills in
+    the question (Niko1221/Strata#4221).  Checked in the code; a page that cannot be read counts as sending."""
+    try:
+        js = (Path(root) / "serve" / "web" / "app.js").read_text()
+    except (OSError, TypeError):
+        return True
+    return any(("startQuestion" in line or 'get("q")' in line) and "send(" in line for line in js.splitlines())
+
+
+def server_pillow(pid, root):
+    """(interpreter, Pillow version or "none") of the Python that runs the server, asked in the server's own
+    environment and folder; (interpreter, None) when it cannot be asked."""
+    try:
+        argv0 = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")[0].decode()
+        exe = argv0 if os.path.isabs(argv0) else os.readlink(f"/proc/{pid}/exe")
+        env = dict(kv.split("=", 1) for kv in Path(f"/proc/{pid}/environ").read_bytes().decode(errors="replace")
+                   .split("\0") if "=" in kv)
+    except OSError:
+        return None, None
+    code = "try:\n import PIL\nexcept ImportError:\n print('none')\nelse:\n print(PIL.__version__)"
+    try:
+        out = subprocess.run([exe, "-c", code], cwd=root, env=env, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return exe, None
+    return exe, (out.stdout.strip() or None) if out.returncode == 0 else None
+
+
+def pillow_safe(version):
+    """Pillow before 13.0.0 has known image-decoding vulnerabilities (GHSA-78g4-xqwv-q3g8, ...); without Pillow,
+    Strata decodes no formats beyond what its picture reader reads itself."""
+    if version == "none":
+        return True
+    m = re.match(r"(\d+)\.", version or "")
+    return bool(m) and int(m.group(1)) >= 13
+
+
+def serving_process(profile):
+    """(pid, folder) of the profile's server process, or None.  Strata's runtime starts it as `python -m serve.server`
+    with that folder as its working directory (strata_control/runtime.py); it need not be the install_dir
+    `models list` reports (STRATA_INSTALL_DIR, or a terminal install serving a setup folder)."""
     pid = strata_json("runtime", "status", "--profile", profile).get("child_pid")
     try:
-        return os.readlink(f"/proc/{int(pid)}/cwd")
+        return int(pid), os.readlink(f"/proc/{int(pid)}/cwd")
     except (TypeError, ValueError, OSError):
         return None
 
 
-IMAGES_REFUSED = ("image generation is on for this model (\"images\" in its run config), and the Strata that serves it "
-                  "({}) passes image prompts to sd-cli on its command line, where other local accounts can read them. "
-                  "Update Strata to a version with the fix (Niko1221/Strata#4204), or turn image generation off "
-                  "(setup --images no). See Privacy in the plugin's README.")
+def refusals(cfg, pid, root):
+    """Why the server of a model with run config `cfg` must not keep running, checked in its code and its Python."""
+    why = []
+    if web_sends_links(root):
+        why.append(f"Strata's web page ({root}/serve/web/app.js) sends a question from a /?q=... link by itself, with "
+                   "the browser's saved API key and MCP tools, so any link can run a request. Use a Strata whose page "
+                   "only fills in the question (Niko1221/Strata#4221).")
+    if cfg.get("vision"):
+        exe, version = server_pillow(pid, root)
+        if not pillow_safe(version):
+            why.append(f"the picture reader is on, and the Python that runs the server ({exe or 'unknown'}) has Pillow "
+                       f"{version or '(could not tell)'}, which has known image-decoding vulnerabilities "
+                       "(GHSA-78g4-xqwv-q3g8). Update Pillow there to 13.0.0 or newer, or turn the picture reader off "
+                       "for this model: \"set\": {\"vision\": null} in patches.json.")
+    if cfg.get("images") and not image_prompts_private(root):
+        why.append("image generation is on (\"images\" in the run config), and this Strata passes image prompts to "
+                   "sd-cli on its command line, where other local accounts can read them. Use a Strata with the fix "
+                   "(Niko1221/Strata#4204), or turn image generation off (setup --images no).")
+    return why
 
 
 def start(mid):
@@ -261,30 +314,30 @@ def start(mid):
         sys.exit(f"unknown model {mid}; known: {' '.join(m['id'] for m in models())}")
     if mid not in apply([mid]):
         sys.exit(f"{mid} not started: its profile {profile_name(mid)} is not this tool's (see above)")
-    images = bool(json.loads((CONFIGS / f"{mid}.json").read_text()).get("images"))
+    cfg = json.loads((CONFIGS / f"{mid}.json").read_text())
     stop()
     name = profile_name(mid)
     print(f"starting {mid}, loading can take a few minutes ...", flush=True)
     p = subprocess.Popen([*STRATA, "runtime", "start", "--profile", name, "--wait", "600"])
-    if images:
-        # Which code serves is only certain once the server process exists.  It loads the model before it opens
-        # its port (serve/server.py), so this check comes before it can take an image request.
-        root, deadline = None, time.monotonic() + 120
-        while root is None and p.poll() is None and time.monotonic() < deadline:
-            root = serving_root(name)
-            if root is None:
-                time.sleep(0.2)
-        if root is None and p.poll() in (None, 0):
-            root = serving_root(name)
-        if root is None and p.poll() not in (None, 0):
-            sys.exit(p.returncode)              # it did not start: nothing serves
-        if not image_prompts_private(root):
-            print(f"stopping {mid} ...", flush=True)
-            strata("runtime", "stop", "--profile", name, "--wait", "60", check=False)   # a server stopped while loading reports server_stop_failed
-            p.wait()
-            now = strata_json("runtime", "status", "--profile", name).get("state", "unknown")
-            sys.exit(f"{mid} {'stopped' if now == 'stopped' else 'NOT stopped (' + now + ')'}: "
-                     + IMAGES_REFUSED.format(root or "not found"))
+    # Which code and which Python serve is only certain once the server process exists.  It loads the model before
+    # it opens its port (serve/server.py), so these checks come before it can take a request.
+    proc, deadline = None, time.monotonic() + 120
+    while proc is None and p.poll() is None and time.monotonic() < deadline:
+        proc = serving_process(name)
+        if proc is None:
+            time.sleep(0.2)
+    if proc is None and p.poll() in (None, 0):
+        proc = serving_process(name)
+    if proc is None and p.poll() not in (None, 0):
+        sys.exit(p.returncode)                  # it did not start: nothing serves
+    why = refusals(cfg, *proc) if proc else ["the server process to check could not be found."]
+    if why:
+        print(f"stopping {mid} ...", flush=True)
+        strata("runtime", "stop", "--profile", name, "--wait", "60", check=False)   # a server stopped while loading reports server_stop_failed
+        p.wait()
+        now = strata_json("runtime", "status", "--profile", name).get("state", "unknown")
+        sys.exit(f"{mid} {'stopped' if now == 'stopped' else 'NOT stopped (' + now + ')'}, because\n- "
+                 + "\n- ".join(why) + "\nSee Privacy in the plugin's README.")
     sys.exit(p.wait())
 
 

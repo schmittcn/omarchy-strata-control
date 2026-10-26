@@ -21,6 +21,10 @@ This plugin is not part of Strata and not made by its authors; it drives Strata'
 3. Click the new icon in the bar and click a model. It starts; the header turns to "Ready" when it answers.
    **Web UI** opens its chat page, **Monitor** shows what the GPU and CPU are doing, **Stop** frees the memory.
 
+**Before you start:** the plugin only runs models on a Strata that meets its safety requirements (see
+[Privacy](#privacy)). As of 2026-10-26 no Strata release does yet; until one does, the plugin stops the model while
+it loads and tells you why and what to change.
+
 That is all you need. To change how a model runs (context, port, VRAM headroom, ...), press **Edit** under
 "Your settings": see [Your model settings](#your-model-settings-patchesjson).
 
@@ -34,6 +38,7 @@ That is all you need. To change how a model runs (context, port, VRAM headroom, 
 | `findmnt`, `lsblk` (util-linux, on every Arch install) | the SSD bar in the mini monitor | the SSD bar is left out |
 | ROCm (AMD) or `nvidia-smi` (NVIDIA) | the measured "in use" VRAM | no "in use" line; the estimate stays |
 | a readable RAPL counter | CPU watts | "— W" (see [CPU power](#cpu-power)) |
+| a Strata that meets the plugin's safety requirements (see [Privacy](#privacy)) | starting models | the model is stopped while it loads, with the reason |
 
 **Edit** uses `$VISUAL` or `$EDITOR`, else nvim (which Omarchy ships).
 
@@ -190,32 +195,22 @@ echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/usr/bin/chmod a+r /sys%p/ener
 
 - The patched run configs in `~/.config/strata/configs/` can hold your server's `api_key`; the plugin keeps them
   readable by you only (0600 in a 0700 folder), like Strata's own profiles.
-- The plugin runs Strata's run configs as they are and adds no features. If you turned on Strata's optional image
-  generation (setup's `--images`, an `"images"` section in the run config), Strata passes each image prompt to its
-  `sd-cli` helper as a command-line argument, and other accounts on this PC can see process arguments while an image
-  is generated. That is Strata's behaviour, with or without this plugin
-  ([Niko1221/Strata#4202](https://github.com/Niko1221/Strata/issues/4202)). So the plugin does not run a model with
-  image generation on a Strata that still does this. It checks the code the started server actually runs (the
-  server process's folder, which can differ from the folder your models are in) while the model is still loading,
-  before the server opens its port, and if that code lacks the fix it stops the server and says why. It runs once
-  your Strata hands the prompt over in a private file
-  ([Niko1221/Strata#4204](https://github.com/Niko1221/Strata/pull/4204)). Until then, update
-  Strata when that fix is released, or turn image generation off (`setup --images no`). Models without image
-  generation are not affected.
+- **What the plugin requires of Strata.** The plugin runs Strata as it is and does not change Strata's code or
+  packages; it is maintained separately from Strata (report problems in Strata to Strata, see its
+  [security policy](https://github.com/Niko1221/Strata/blob/main/SECURITY.md)). But it only keeps a model running
+  when the Strata that serves it is safe on these points. It checks them in the code and the Python the started
+  server actually runs (the server process's folder and interpreter, which can differ from the folder your models are
+  in), while the model is still loading and before the server opens its port. If one fails, it stops the server and
+  says why. Required:
 
-**Known risks in Strata itself.** This plugin is maintained separately from Strata and does not change Strata's code
-or packages; report problems in Strata to Strata
-([security policy](https://github.com/Niko1221/Strata/blob/main/SECURITY.md)). Known at Strata `main` 4b9e05a2
-(2026-10-25):
+  | Requirement | Why | Fixed in Strata by | Your way out until then |
+  |---|---|---|---|
+  | The web page only fills in a question from a `/?q=...` link, it does not send it | Any page can link there; the request would carry the browser's saved API key and its MCP tools | [Niko1221/Strata#4221](https://github.com/Niko1221/Strata/pull/4221) | none: a Strata with this fix |
+  | With the picture reader on (`"vision"` in the run config): Pillow 13.0.0 or newer, or no Pillow, in the server's Python | Pillow before 13 has known image-decoding vulnerabilities ([GHSA-78g4-xqwv-q3g8](https://github.com/python-pillow/Pillow/security/advisories/GHSA-78g4-xqwv-q3g8) and others) | [Niko1221/Strata#4220](https://github.com/Niko1221/Strata/pull/4220) | update Pillow in your Strata's environment (a source checkout's `.venv`, Python 3.11+), or turn the picture reader off for the model: `"set": {"vision": null}` in patches.json |
+  | With image generation on (`"images"`): prompts go to `sd-cli` in a private file | On the command line, other accounts on this PC can read them ([#4202](https://github.com/Niko1221/Strata/issues/4202)) | [Niko1221/Strata#4204](https://github.com/Niko1221/Strata/pull/4204) | turn image generation off (`setup --images no`) |
 
-- Strata's web page sends a question given as a `/?q=...` link on its own, with the API key saved in your browser and
-  the MCP tools turned on there. Don't open such links from sources you don't trust, especially with MCP tools on.
-  The plugin's **Web UI** button opens the start page without `?q=`.
-- Strata pins Pillow 12.3.0, which has known vulnerabilities in image decoding
-  ([GHSA-78g4-xqwv-q3g8](https://github.com/python-pillow/Pillow/security/advisories/GHSA-78g4-xqwv-q3g8) and
-  others). With the picture reader on, a crafted image in a request can crash the server or worse. In a source
-  checkout on Python 3.11+, update Pillow in its `.venv` to 13.0.0 or newer; a terminal install ships its own Python,
-  so wait for a Strata release there.
+  As of Strata `main` 4b9e05a2 (2026-10-25) none of these fixes is merged, so the plugin refuses to run models on an
+  unchanged Strata. Once a Strata release has them, it runs them without a plugin update.
 
 ## The helper from a terminal
 
