@@ -35,6 +35,7 @@ Panel {
   property var snapshot: ({})      // strata status, polled while the mini monitor is open
   property int cursor: 0
   property bool cursorActive: false
+  property string notifyReady: ""  // a start of this model ended well: notify once info shows its URL
 
   // the model that is not stopped (starting, ready, stopping), if any
   readonly property var active: {
@@ -62,10 +63,24 @@ Panel {
 
   function refresh() { if (!info.running) info.running = true }
 
+  // A start takes minutes: say how it ended when the popup is no longer open to show it.
+  function notify(headline, body, url) {
+    if (opened) return
+    var cmd = ["omarchy-notification-send", "--app-name", "Strata Control", "-g", "󰧑", headline, body]
+    if (url) cmd = cmd.concat(["--action", "Web UI", "xdg-open", url + "/"])
+    Quickshell.execDetached(cmd)
+  }
+
   function parseInfo(raw) {
     try {
       var data = JSON.parse(String(raw || ""))
       models = data.models || []
+      if (notifyReady !== "") {
+        var m = models.filter(function(x) { return x.id === notifyReady })[0]
+        // a poll already under way can still say "starting": wait for the next one
+        if (m && m.state === "ready") notify(m.id + " is ready", "Port " + m.url.split(":").pop(), m.url)
+        if (!m || m.state === "ready" || m.state === "stopped") notifyReady = ""
+      }
       patchesPath = data.patches || ""
       errorText = data.error ? String(data.error)
         : models.length === 0 ? "No models found: set one up with strata launch" : ""
@@ -180,9 +195,14 @@ Panel {
     environment: ({ STRATA_CLI: root.strataCommand, STRATA_UPDATE_CHECK: root.updateCheckCommand })
     stdout: SplitParser { onRead: function(line) { root.addOutput(line) } }
     stderr: SplitParser { onRead: function(line) { root.addOutput(line) } }
-    onExited: {
+    onExited: function(exitCode) {
       if (root.runningCmd === "Checking for updates")
         root.updateAvailable = /update available/i.test(root.outputLines.join("\n"))
+      if (root.runningCmd.indexOf("Starting ") === 0) {
+        var id = root.runningCmd.slice(9)
+        if (exitCode === 0) root.notifyReady = id
+        else root.notify(id + " did not start", root.outputLines.slice(-4).join("\n"), "")
+      }
       root.runningCmd = ""
       root.refresh()
     }

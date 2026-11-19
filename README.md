@@ -59,6 +59,9 @@ The bar icon is dim while no model is ready; its tooltip names the model and its
 Command output appears below the buttons; click it, or the same button again, to close it. Keys: arrows move through
 the models, Enter starts one, Esc closes the popup.
 
+Loading a model takes minutes. If you close the popup meanwhile, a desktop notification says how the start ended:
+ready, with a **Web UI** button, or why it did not start.
+
 **Memory per model.** "13 GB VRAM + 27.5 GB RAM" is Strata's own estimate for this PC, the one `strata launch`
 shows. A model Strata's catalog does not know gets the same formula on the size of its weights, marked `~`. Your
 VRAM headroom settings are counted. The estimate assumes a 32K conversation memory, so long contexts need more VRAM
