@@ -129,7 +129,7 @@ bad = sp.patch_problems({"*": {"arg": {}}, "a": {"args": ["--x"]}, "b": {"args":
 assert len(bad) == 8, bad
 assert sp.patch_problems([]) and 'unknown' in bad[0] and '"prot"' in bad[4], bad
 
-# the model list's mark: every name the matching patches set, once, in file order
-assert sp.yours(patches, "orn-1") == ["--max-context", "--kv", "--mtp", "--vision", "--fast", "B", "DROP", "sampling", "vision"]
+# the model list's mark: every name the matching patches set, once, the most specific entry (last in the file) first
+assert sp.yours(patches, "orn-1") == ["--kv", "--mtp", "--vision", "--fast", "B", "DROP", "sampling", "vision", "--max-context"]
 assert sp.yours(patches, "coder") == ["--max-context"] and sp.yours({}, "x") == []
 print("ok")

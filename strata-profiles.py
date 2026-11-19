@@ -444,9 +444,10 @@ def measured(root_pid):
 
 
 def yours(patches, mid):
-    """What the person's settings change for this model: the flags, variables, config keys and serving settings named."""
+    """What the person's settings change for this model: the flags, variables, config keys and serving settings named.
+    The most specific entries (last in the file) come first: a row has room for few, and "*" is the same on every row."""
     names = []
-    for p in matching(patches, mid):
+    for p in reversed(matching(patches, mid)):
         for part in PARTS:
             names += [k for k in p.get(part) or {} if k not in names]
     return names
