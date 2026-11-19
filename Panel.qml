@@ -20,6 +20,8 @@ Panel {
   readonly property string strataCommand: setting("strataCommand", "strata")
   readonly property string updateCommand: setting("updateCommand", "strata update")
   readonly property string updateCheckCommand: setting("updateCheckCommand", "")   // empty: `strata update --check`, summed up
+  readonly property bool idleStop: setting("idleStop", false) === true
+  readonly property int idleStopMinutes: Math.max(1, Number(setting("idleStopMinutes", 30)))
   property bool updateAvailable: false   // the last check said so: the Update button installs instead of checking
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property string fontName: bar ? bar.fontFamily : Style.font.family
@@ -214,6 +216,28 @@ Panel {
     repeat: true
     triggeredOnStart: true
     onTriggered: root.refresh()
+  }
+
+  // Idle stop: once a minute while a model is ready, the helper stops it after idleStopMinutes without a request
+  Process {
+    id: idleProc
+    command: ["python3", root.tool, "idle-stop", String(root.idleStopMinutes)]
+    environment: ({ STRATA_CLI: root.strataCommand })
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text.trim() !== "") {
+        Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Strata Control", "-g", "󰧑",
+                                 "Strata model stopped", text.trim()])
+        root.refresh()
+      }
+    }
+  }
+
+  Timer {
+    interval: 60000
+    running: root.idleStop && root.ready && root.runningCmd === ""
+    repeat: true
+    onTriggered: if (!idleProc.running) idleProc.running = true
   }
 
   BarIconButton {

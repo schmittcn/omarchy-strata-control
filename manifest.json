@@ -27,7 +27,9 @@
       "refreshIntervalSec": 30,
       "strataCommand": "strata",
       "updateCommand": "strata update",
-      "updateCheckCommand": ""
+      "updateCheckCommand": "",
+      "idleStop": false,
+      "idleStopMinutes": 30
     },
     "schema": [
       {
@@ -56,6 +58,22 @@
         "type": "string",
         "label": "Update check command (empty: strata update --check)",
         "defaultValue": ""
+      },
+      {
+        "key": "idleStop",
+        "type": "boolean",
+        "label": "Stop the model when idle",
+        "description": "Frees GPU and RAM after the time below without a request.",
+        "defaultValue": false
+      },
+      {
+        "key": "idleStopMinutes",
+        "type": "integer",
+        "label": "Idle time before stopping (minutes)",
+        "min": 1,
+        "max": 1440,
+        "step": 1,
+        "defaultValue": 30
       }
     ]
   }
