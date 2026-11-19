@@ -244,6 +244,7 @@ strata-profiles info           JSON: models and their state
 strata-profiles details        JSON: strata version, size and memory per model
 strata-profiles status         JSON: server snapshot plus CPU
 strata-profiles update-check   is there a newer Strata?
+strata-profiles clean          stop and remove the plugin's profiles, configs and logs (patches.json stays)
 ```
 
 `STRATA_CLI` picks the strata command, as `strataCommand` does in the plugin.
@@ -273,13 +274,16 @@ clicked, what the popup showed, and the output of `strata --version`.
 
 ## Remove
 
+First stop the model and remove what the plugin made in Strata's folders, then the plugin:
+
 ```sh
+python3 ~/.config/omarchy/plugins/io.github.schmittcn.strata-control/strata-profiles.py clean
 omarchy plugin remove io.github.schmittcn.strata-control
 ```
 
-A running model keeps running: stop it first, or later with `strata runtime stop --profile omarchy-<id>`. Your
-settings and the `omarchy-*` profiles stay in `~/.config/strata/` (see [Files](#files)); delete them by hand if you
-want.
+`clean` stops a running model and removes the plugin's `omarchy-*` profiles, the patched configs in
+`~/.config/strata/configs/` and their server logs. It keeps your `patches.json`, and an `omarchy-*` profile that points
+elsewhere (it is yours). Without `clean`, a running model keeps running and those files stay (see [Files](#files)).
 
 ## Development
 

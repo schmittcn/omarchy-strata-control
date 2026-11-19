@@ -35,7 +35,7 @@ assert sp.ours({"source_config": str(sp.CONFIGS / "y.json")}, out)
 assert not sp.ours({"source_config": "/home/u/Strata/strata-x.json"}, out)
 
 # the patched copies can hold an api_key: owner-only, also when they replace an older world-readable file
-import os, tempfile
+import contextlib, io, json, os, tempfile
 from pathlib import Path
 os.umask(0o022)
 with tempfile.TemporaryDirectory() as d:
@@ -128,4 +128,27 @@ bad = sp.patch_problems({"*": {"arg": {}}, "a": {"args": ["--x"]}, "b": {"args":
                          "c": {"profile": {"prot": 1}}, "d": {"env": {"E": True}}, "e": [], "f": {"set": 3}})
 assert len(bad) == 8, bad
 assert sp.patch_problems([]) and 'unknown' in bad[0] and '"prot"' in bad[4], bad
+
+# clean: our profiles stopped and removed with their configs and logs; someone else's same-named profile and patches.json stay
+with tempfile.TemporaryDirectory() as t:
+    t = Path(t)
+    sp.PROFILES, sp.CONFIGS, sp.RUNTIME, sp.PATCHES = t / "profiles", t / "configs", t / "runtime", t / "patches.json"
+    for d in (sp.PROFILES, sp.CONFIGS, sp.RUNTIME):
+        d.mkdir()
+    sp.PATCHES.write_text("{}")
+    (sp.CONFIGS / "a.json").write_text("{}")
+    (sp.PROFILES / "omarchy-a.json").write_text(json.dumps({"source_config": str(sp.CONFIGS / "a.json")}))
+    (sp.PROFILES / "omarchy-mine.json").write_text(json.dumps({"source_config": "/elsewhere/mine.json"}))
+    (sp.PROFILES / "other.json").write_text("{}")
+    for f in ("omarchy-a.json", "omarchy-a.server.log", "omarchy-a.host.log", "omarchy-mine.server.log"):
+        (sp.RUNTIME / f).write_text("")
+    stopped = []
+    real_strata, sp.strata = sp.strata, lambda *a, **k: stopped.append(a)
+    with contextlib.redirect_stdout(io.StringIO()):
+        sp.clean()
+    sp.strata = real_strata
+    assert stopped == [("runtime", "stop", "--profile", "omarchy-a", "--wait", "60")], stopped
+    assert sorted(p.name for p in sp.PROFILES.iterdir()) == ["omarchy-mine.json", "other.json"]
+    assert sorted(p.name for p in sp.RUNTIME.iterdir()) == ["omarchy-a.json", "omarchy-mine.server.log"]
+    assert not sp.CONFIGS.exists() and sp.PATCHES.exists()
 print("ok")

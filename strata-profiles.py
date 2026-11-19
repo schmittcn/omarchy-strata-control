@@ -14,6 +14,7 @@ A profile of that name that points anywhere else is the person's own: it is left
   strata-profiles.py start ID      stop what runs, apply ID, start it and wait until ready
   strata-profiles.py stop          stop every running profile
   strata-profiles.py edit          create the patch file if missing and print its path
+  strata-profiles.py clean         stop and remove this tool's profiles, patched configs and logs; patches.json stays
   strata-profiles.py update-check  is there a newer Strata? ($STRATA_UPDATE_CHECK, else `strata update --check`)
   strata-profiles.py monitor       `strata monitor`, the terminal UI, with the resolved command
 
@@ -615,6 +616,28 @@ def update_check():
     print("update available: strata update" if found else "up to date")
 
 
+def clean():
+    """Undo what this tool made, for removing the plugin: our profiles (stopped first), the patched configs and the
+    server logs.  A same-named profile pointing elsewhere is the person's and stays, and so does patches.json."""
+    for prof in sorted(PROFILES.glob(f"{PREFIX}*.json")):
+        name = prof.stem
+        if not ours(json.loads(prof.read_text()), CONFIGS / "x.json"):
+            print(f"{name}: not this tool's, left alone")
+            continue
+        if (RUNTIME / f"{name}.json").exists():
+            print(f"stopping {name} ...", flush=True)
+            strata("runtime", "stop", "--profile", name, "--wait", "60")
+        for f in (prof, RUNTIME / f"{name}.server.log", RUNTIME / f"{name}.host.log"):
+            f.unlink(missing_ok=True)
+        print(f"{name}: removed")
+    for f in sorted(CONFIGS.glob("*.json")):
+        f.unlink()
+    if CONFIGS.exists():
+        CONFIGS.rmdir()                         # fails if something else was put there: that is not ours to delete
+        print(f"{CONFIGS}: removed")
+    print(f"{PATCHES} is kept: your settings")
+
+
 def edit():
     if not PATCHES.exists():
         CONF.mkdir(parents=True, exist_ok=True)
@@ -631,6 +654,7 @@ if __name__ == "__main__":
     elif cmd == "start" and len(rest) == 1: start(rest[0])
     elif cmd == "stop": stop()
     elif cmd == "edit": edit()
+    elif cmd == "clean": clean()
     elif cmd == "update-check": update_check()
     elif cmd == "monitor": os.execvp(STRATA[0], [*STRATA, "monitor", *rest])
     else: print(__doc__.strip()); sys.exit(0 if cmd in ("help", "-h", "--help") else 2)
