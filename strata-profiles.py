@@ -321,8 +321,8 @@ def idle_stop(minutes):
             return                              # the snapshot is of another server than ours: leave it
         idle = idle_seconds(snap, time.time())
         if idle is not None and idle >= minutes * 60:
-            print(f"{m['id']}: no request for {round(idle / 60)} min, stopping", flush=True)
             strata("runtime", "stop", "--profile", profile_name(m["id"]), "--wait", "60")
+            print(f"{m['id']}: stopped after {round(idle / 60)} min without a request", flush=True)
         return
 
 
