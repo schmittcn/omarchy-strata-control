@@ -15,6 +15,8 @@ A profile of that name that points anywhere else is the person's own: it is left
   strata-profiles.py stop          stop every running profile
   strata-profiles.py edit          create the patch file if missing and print its path
   strata-profiles.py clean         stop and remove this tool's profiles, patched configs and logs; patches.json stays
+
+  strata-profiles.py idle-stop MIN stop the served model when it has had no request for MIN minutes
   strata-profiles.py update-check  is there a newer Strata? ($STRATA_UPDATE_CHECK, else `strata update --check`)
   strata-profiles.py monitor       `strata monitor`, the terminal UI, with the resolved command
 
@@ -295,6 +297,33 @@ def stop():
         if state(m["id"]) != "stopped":
             print(f"stopping {m['id']} ...", flush=True)
             strata("runtime", "stop", "--profile", profile_name(m["id"]), "--wait", "60")
+
+
+def idle_seconds(snap, now):
+    """Seconds since the server last did something (booted, or a request came or ended); None while it works or when
+    the snapshot says nothing about it."""
+    work = snap.get("work") or {}
+    if work.get("active") or work.get("queued"):
+        return None
+    times = [(snap.get("instance") or {}).get("boot_time") or 0]
+    times += [e.get("at") or 0 for e in (snap.get("activity") or {}).get("events") or []]
+    times += [(r.get("time") or 0) + (r.get("duration_s") or 0) for r in snap.get("recent") or []]
+    return now - max(times) if max(times) > 0 else None
+
+
+def idle_stop(minutes):
+    for m in models():
+        st = status(m["id"])
+        if st.get("state") != "ready":
+            continue
+        snap = strata_json("status").get("snapshot") or {}
+        if (snap.get("instance") or {}).get("id") != st.get("instance_id"):
+            return                              # the snapshot is of another server than ours: leave it
+        idle = idle_seconds(snap, time.time())
+        if idle is not None and idle >= minutes * 60:
+            print(f"{m['id']}: no request for {round(idle / 60)} min, stopping", flush=True)
+            strata("runtime", "stop", "--profile", profile_name(m["id"]), "--wait", "60")
+        return
 
 
 def image_prompts_private(root):
@@ -653,6 +682,7 @@ if __name__ == "__main__":
     elif cmd == "apply": apply(rest or None)
     elif cmd == "start" and len(rest) == 1: start(rest[0])
     elif cmd == "stop": stop()
+    elif cmd == "idle-stop" and len(rest) == 1: idle_stop(float(rest[0]))
     elif cmd == "edit": edit()
     elif cmd == "clean": clean()
     elif cmd == "update-check": update_check()

@@ -151,4 +151,13 @@ with tempfile.TemporaryDirectory() as t:
     assert sorted(p.name for p in sp.PROFILES.iterdir()) == ["omarchy-mine.json", "other.json"]
     assert sorted(p.name for p in sp.RUNTIME.iterdir()) == ["omarchy-a.json", "omarchy-mine.server.log"]
     assert not sp.CONFIGS.exists() and sp.PATCHES.exists()
+
+# idle: the latest of boot, request events and finished requests; never while a request runs or with nothing known
+snap = {"instance": {"boot_time": 1000}, "work": {"active": 0, "queued": 0},
+        "activity": {"events": [{"at": 1500}, {"at": 1600}]}, "recent": [{"time": 1650, "duration_s": 50}]}
+assert sp.idle_seconds(snap, 2000) == 300
+assert sp.idle_seconds({"instance": {"boot_time": 1000}}, 1600) == 600            # booted, never asked
+assert sp.idle_seconds({**snap, "work": {"active": 1}}, 9999) is None
+assert sp.idle_seconds({**snap, "work": {"queued": 2}}, 9999) is None
+assert sp.idle_seconds({}, 9999) is None
 print("ok")
