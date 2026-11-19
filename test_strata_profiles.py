@@ -129,6 +129,15 @@ bad = sp.patch_problems({"*": {"arg": {}}, "a": {"args": ["--x"]}, "b": {"args":
 assert len(bad) == 8, bad
 assert sp.patch_problems([]) and 'unknown' in bad[0] and '"prot"' in bad[4], bad
 
+# idle: the latest of boot, request events and finished requests; never while a request runs or with nothing known
+snap = {"instance": {"boot_time": 1000}, "work": {"active": 0, "queued": 0},
+        "activity": {"events": [{"at": 1500}, {"at": 1600}]}, "recent": [{"time": 1650, "duration_s": 50}]}
+assert sp.idle_seconds(snap, 2000) == 300
+assert sp.idle_seconds({"instance": {"boot_time": 1000}}, 1600) == 600            # booted, never asked
+assert sp.idle_seconds({**snap, "work": {"active": 1}}, 9999) is None
+assert sp.idle_seconds({**snap, "work": {"queued": 2}}, 9999) is None
+assert sp.idle_seconds({}, 9999) is None
+
 # the model list's mark: every name the matching patches set, once, the most specific entry (last in the file) first
 assert sp.yours(patches, "orn-1") == ["--kv", "--mtp", "--vision", "--fast", "B", "DROP", "sampling", "vision", "--max-context"]
 assert sp.yours(patches, "coder") == ["--max-context"] and sp.yours({}, "x") == []
