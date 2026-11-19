@@ -137,4 +137,8 @@ assert sp.idle_seconds({"instance": {"boot_time": 1000}}, 1600) == 600          
 assert sp.idle_seconds({**snap, "work": {"active": 1}}, 9999) is None
 assert sp.idle_seconds({**snap, "work": {"queued": 2}}, 9999) is None
 assert sp.idle_seconds({}, 9999) is None
+
+# the model list's mark: every name the matching patches set, once, the most specific entry (last in the file) first
+assert sp.yours(patches, "orn-1") == ["--kv", "--mtp", "--vision", "--fast", "B", "DROP", "sampling", "vision", "--max-context"]
+assert sp.yours(patches, "coder") == ["--max-context"] and sp.yours({}, "x") == []
 print("ok")
