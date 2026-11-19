@@ -133,9 +133,45 @@ def load_patches():
     if not PATCHES.exists():
         return {}
     try:
-        return json.loads(PATCHES.read_text())
+        patches = json.loads(PATCHES.read_text())
     except ValueError as e:
         sys.exit(f"{PATCHES}: {e}")
+    problems = patch_problems(patches)
+    if problems:
+        sys.exit(f"{PATCHES}: nothing applied:\n  " + "\n  ".join(problems))
+    return patches
+
+
+PARTS = ("args", "env", "set", "profile")
+PROFILE_KEYS = ("host", "port", "parallel", "batch_groups", "max_queue", "queue_timeout", "offline", "batch_telemetry")
+
+
+def patch_problems(patches):
+    """What is wrong with patches.json, as lines for the person; a typo would otherwise do nothing, silently."""
+    if not isinstance(patches, dict):
+        return ["the file must be an object: {\"model-id\": {\"args\": {...}}, ...}"]
+    out = []
+    for globs, patch in patches.items():
+        if not isinstance(patch, dict):
+            out.append(f'"{globs}": must be an object with {", ".join(PARTS)}')
+            continue
+        for part, body in patch.items():
+            where = f'"{globs}" → "{part}"'
+            if part not in PARTS:
+                out.append(f"{where}: unknown, use {', '.join(PARTS)}")
+            elif not isinstance(body, dict):
+                out.append(f'{where}: must be an object, e.g. {{"--flag": "value"}}' if part == "args"
+                           else f"{where}: must be an object")
+            elif part == "args":
+                out += [f'{where} → "{f}": a flag starts with -' for f in body if not f.startswith("-")]
+                out += [f'{where} → "{f}": use a string, number, true, false or null'
+                        for f, v in body.items() if isinstance(v, (list, dict))]
+            elif part == "env":
+                out += [f'{where} → "{k}": use a string, number or null'
+                        for k, v in body.items() if isinstance(v, (list, dict, bool))]
+            elif part == "profile":
+                out += [f'{where} → "{k}": unknown, use {", ".join(PROFILE_KEYS)}' for k in body if k not in PROFILE_KEYS]
+    return out
 
 
 def set_flag(args, flag, value):
