@@ -251,15 +251,32 @@ Panel {
     onTriggered: if (!idleProc.running) idleProc.running = true
   }
 
-  BarIconButton {
-    id: button
+  // starting, loading or stopping: the bar icon pulses; dim when stopped, full when ready
+  readonly property bool busy: (active !== null && !ready) || runningCmd.indexOf("Starting ") === 0 || runningCmd === "Stopping"
+
+  // the pulse goes on this wrapper: the button's own opacity is bound to `dimmed`
+  Item {
+    id: pulse
     anchors.fill: parent
-    bar: root.bar
-    text: "󰧑"
-    slotSize: Style.bar.statusSlot
-    dimmed: !root.ready
-    tooltipText: root.opened ? "" : "Strata: " + (root.active ? root.active.id + " (" + root.active.state + ")" : "stopped")
-    onPressed: function(b) { root.toggle() }
+
+    SequentialAnimation on opacity {
+      running: root.busy
+      loops: Animation.Infinite
+      alwaysRunToEnd: true
+      NumberAnimation { to: 0.25; duration: 700; easing.type: Easing.InOutSine }
+      NumberAnimation { to: 1.0; duration: 700; easing.type: Easing.InOutSine }
+    }
+
+    BarIconButton {
+      id: button
+      anchors.fill: parent
+      bar: root.bar
+      text: "󰧑"
+      slotSize: Style.bar.statusSlot
+      dimmed: !root.ready && !root.busy
+      tooltipText: root.opened ? "" : "Strata: " + (root.active ? root.active.id + " (" + root.active.state + ")" : "stopped")
+      onPressed: function(b) { root.toggle() }
+    }
   }
 
   KeyboardPanel {

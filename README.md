@@ -44,7 +44,8 @@ That is all you need. To change how a model runs (context, port, VRAM headroom, 
 
 ## Using it
 
-The bar icon is dim while no model is ready; its tooltip names the model and its state.
+The bar icon is dim while no model runs, pulses while one starts, loads or stops, and is full when it is ready; its
+tooltip names the model and its state.
 
 ![The popup without and with the mini monitor](screenshots/popup-and-monitor.png)
 

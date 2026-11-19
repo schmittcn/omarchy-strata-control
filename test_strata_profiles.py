@@ -164,4 +164,24 @@ assert sp.idle_seconds({}, 9999) is None
 # the model list's mark: every name the matching patches set, once, the most specific entry (last in the file) first
 assert sp.yours(patches, "orn-1") == ["--kv", "--mtp", "--vision", "--fast", "B", "DROP", "sampling", "vision", "--max-context"]
 assert sp.yours(patches, "coder") == ["--max-context"] and sp.yours({}, "x") == []
+
+# idle_stop: stops the ready model past the limit; never a busy one, one under the limit, or another server's snapshot
+def run_idle(minutes, snap, inst="i1"):
+    stopped, real = [], (sp.models, sp.status, sp.strata_json, sp.strata, sp.time.time)
+    sp.models = lambda: [{"id": "a"}, {"id": "b"}]
+    sp.status = lambda mid: {"state": "ready", "instance_id": inst} if mid == "b" else {}
+    sp.strata_json = lambda *a: {"snapshot": snap}
+    sp.strata = lambda *a, **k: stopped.append(a)
+    sp.time.time = lambda: 10_000
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            sp.idle_stop(minutes)
+    finally:
+        sp.models, sp.status, sp.strata_json, sp.strata, sp.time.time = real
+    return stopped
+quiet = {"instance": {"id": "i1", "boot_time": 10_000 - 31 * 60}, "work": {}}
+assert run_idle(30, quiet) == [("runtime", "stop", "--profile", "omarchy-b", "--wait", "60")]
+assert run_idle(45, quiet) == []                                                   # not idle long enough
+assert run_idle(30, {**quiet, "work": {"active": 1}}) == []                        # a request runs
+assert run_idle(30, quiet, inst="other") == []                                     # the snapshot is another server's
 print("ok")
