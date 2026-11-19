@@ -164,11 +164,22 @@ start that model.
 ## A source checkout or fork
 
 `strata runtime` serves the code of the strata command's own Strata copy. If you run Strata from a git checkout, point
-the plugin at that checkout's command (absolute paths, `~` is not expanded):
+the plugin at that checkout's folder:
 
 ```json
-"strataCommand": "env STRATA_PYTHON=/path/to/Strata/.venv/bin/python /path/to/Strata/bin/strata"
+"strataCommand": "/path/to/Strata"
 ```
+
+The plugin finds the command and the checkout's Python in it, in either layout: `terminal/bin/strata` and
+`terminal/.venv` (Strata 0.2.16 and newer) or `bin/strata` and `.venv` (older). A full command works too (absolute
+paths, `~` is not expanded):
+
+```json
+"strataCommand": "env STRATA_PYTHON=/path/to/Strata/terminal/.venv/bin/python /path/to/Strata/terminal/bin/strata"
+```
+
+A command written before 0.2.16 (`/path/to/Strata/.venv/bin/python /path/to/Strata/bin/strata`) keeps working after
+the update: paths that moved into `terminal/` are followed there.
 
 The footer shows which version answers. For a fork kept on top of upstream, point the update buttons at your own
 script, e.g. one that rebases onto upstream, rebuilds and runs `strata-profiles apply`:

@@ -15,9 +15,12 @@ A profile of that name that points anywhere else is the person's own: it is left
   strata-profiles.py stop          stop every running profile
   strata-profiles.py edit          create the patch file if missing and print its path
   strata-profiles.py update-check  is there a newer Strata? ($STRATA_UPDATE_CHECK, else `strata update --check`)
+  strata-profiles.py monitor       `strata monitor`, the terminal UI, with the resolved command
 
-STRATA_CLI picks the strata command (default `strata`), e.g. a source checkout:
-  STRATA_CLI="env STRATA_PYTHON=/path/to/Strata/.venv/bin/python /path/to/Strata/bin/strata"
+STRATA_CLI picks the strata command (default `strata`). For a source checkout, its folder is enough:
+  STRATA_CLI=/path/to/Strata
+A full command written for a checkout from before Strata 0.2.16 (/path/to/Strata/bin/strata, .venv) keeps
+working: paths the 0.2.16 layout moved into terminal/ are followed there.
 
 patches.json maps comma-separated globs on the model id to a patch; matching
 patches apply in file order, so put "*" first and specific ids after it:
@@ -50,8 +53,36 @@ PROFILES = CONF / "profiles"
 # `strata runtime` keeps a record per live instance here; profiles without one are stopped, so polling skips them
 RUNTIME = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "strata" / "runtime"
 os.environ["PATH"] = f"{Path.home()}/.local/bin:{os.environ.get('PATH', '')}"
+
+
+def moved(tok):
+    """A path token (or NAME=path) that does not exist, but does under a terminal/ folder above it: Strata 0.2.16 moved
+    a checkout's bin/, .venv and serve/ into terminal/.  Anything else comes back unchanged."""
+    name, eq, val = tok.partition("=") if re.match(r"[A-Za-z_][A-Za-z0-9_]*=", tok) else ("", "", tok)
+    p = Path(val)
+    if p.is_absolute() and not p.exists():
+        for parent in p.parents:
+            alt = parent / "terminal" / p.relative_to(parent)
+            if alt.exists():
+                return name + eq + str(alt)
+    return tok
+
+
+def resolve_cli(cmd):
+    """The strata command as an argv: a checkout folder becomes its bin/strata with its .venv's Python (terminal/
+    first, the 0.2.16 layout, then the folder itself), and an older command's moved paths are followed."""
+    parts = shlex.split(cmd or "strata")
+    if len(parts) == 1 and Path(parts[0]).expanduser().is_dir():
+        root = Path(parts[0]).expanduser()
+        for base in (root / "terminal", root):
+            if (base / "bin" / "strata").is_file():
+                py = base / ".venv" / "bin" / "python"
+                return (["env", f"STRATA_PYTHON={py}"] if py.is_file() else []) + [str(base / "bin" / "strata")]
+    return [moved(t) for t in parts]
+
+
 # the strata CLI to use; its own copy of Strata is what `runtime start` serves from
-STRATA = shlex.split(os.environ.get("STRATA_CLI") or "strata")
+STRATA = resolve_cli(os.environ.get("STRATA_CLI"))
 # our profiles carry this prefix, so a profile the person made and named like a model is never touched
 PREFIX = "omarchy-"
 
@@ -565,4 +596,5 @@ if __name__ == "__main__":
     elif cmd == "stop": stop()
     elif cmd == "edit": edit()
     elif cmd == "update-check": update_check()
+    elif cmd == "monitor": os.execvp(STRATA[0], [*STRATA, "monitor", *rest])
     else: print(__doc__.strip()); sys.exit(0 if cmd in ("help", "-h", "--help") else 2)

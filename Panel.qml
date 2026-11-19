@@ -269,7 +269,7 @@ Panel {
             ActionButton {
               text: "TUI Monitor"; iconText: "󰆍"
               tooltipText: "strata monitor: the full terminal UI"
-              onClicked: root.inTerminal("$STRATA_CLI monitor")
+              onClicked: root.inTerminal("python3 " + Util.shellQuote(root.tool) + " monitor")
             }
             ActionButton {
               text: "Web UI"; iconText: "󰖟"

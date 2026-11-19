@@ -103,4 +103,21 @@ with tempfile.TemporaryDirectory() as d:
     assert len(sp.refusals({"images": {"exe": "sd-cli"}}, 1, d)) == 1     # no serve/images.py here
     sp.server_pillow = real_pillow
 
+# the strata command: a checkout folder (0.2.16 terminal/ layout or older), and an old command after the layout move
+import tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory() as d:
+    new, old = Path(d) / "new", Path(d) / "old"
+    for base in (new / "terminal", old):
+        (base / "bin").mkdir(parents=True); (base / "bin" / "strata").write_text("")
+        (base / ".venv" / "bin").mkdir(parents=True); (base / ".venv" / "bin" / "python").write_text("")
+    t = new / "terminal"
+    assert sp.resolve_cli(str(new)) == ["env", f"STRATA_PYTHON={t}/.venv/bin/python", f"{t}/bin/strata"]
+    assert sp.resolve_cli(str(old)) == ["env", f"STRATA_PYTHON={old}/.venv/bin/python", f"{old}/bin/strata"]
+    # a pre-0.2.16 command on a checkout that moved: followed into terminal/; one that still exists is untouched
+    assert sp.resolve_cli(f"env STRATA_PYTHON={new}/.venv/bin/python {new}/bin/strata") == \
+        ["env", f"STRATA_PYTHON={t}/.venv/bin/python", f"{t}/bin/strata"]
+    assert sp.resolve_cli(f"env STRATA_PYTHON={old}/.venv/bin/python {old}/bin/strata") == \
+        ["env", f"STRATA_PYTHON={old}/.venv/bin/python", f"{old}/bin/strata"]
+assert sp.resolve_cli(None) == ["strata"] and sp.resolve_cli("strata") == ["strata"]
 print("ok")
