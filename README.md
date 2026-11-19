@@ -33,7 +33,7 @@ That is all you need. To change how a model runs (context, port, VRAM headroom, 
 | Needs | For | Without it |
 |---|---|---|
 | Omarchy with its shell (the Quickshell bar) | everything | - |
-| Strata's `strata` command, 0.2.1 or newer, with at least one model set up | everything | the popup says the command is not found, or "No models found" |
+| Strata's `strata` command, 0.2.11 or newer, with at least one model set up | everything | the popup says the command is not found, or "No models found" |
 | `python3` (the system one, no packages) | the helper `strata-profiles.py` | the popup says "No answer from strata-profiles.py: is python3 installed?" |
 | `findmnt`, `lsblk` (util-linux, on every Arch install) | the SSD bar in the mini monitor | the SSD bar is left out |
 | ROCm (AMD) or `nvidia-smi` (NVIDIA) | the measured "in use" VRAM | no "in use" line; the estimate stays |
@@ -138,6 +138,10 @@ Which engine arguments exist depends on the model; Strata's
 `strata models inspect <id>` names a model's run config with its current ones.
 
 After **Edit** the change is applied when you close the editor; start the model again to use it.
+
+A mistake in the file (a misspelled part such as `"arg"`, an unknown `profile` setting, a flag without its leading
+`-`, a list where an object belongs) stops Apply and model starts with a list of what is wrong; nothing is applied
+until it is fixed.
 
 ### Leaving VRAM for the desktop
 

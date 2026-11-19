@@ -120,4 +120,12 @@ with tempfile.TemporaryDirectory() as d:
     assert sp.resolve_cli(f"env STRATA_PYTHON={old}/.venv/bin/python {old}/bin/strata") == \
         ["env", f"STRATA_PYTHON={old}/.venv/bin/python", f"{old}/bin/strata"]
 assert sp.resolve_cli(None) == ["strata"] and sp.resolve_cli("strata") == ["strata"]
+
+# patches.json mistakes are named instead of doing nothing (or crashing in patch_config)
+assert sp.patch_problems(patches) == [] and sp.patch_problems({}) == []
+assert sp.patch_problems({"*": {"profile": {"port": 8095}, "env": {"A": None, "B": 1}, "set": {"vision": None}}}) == []
+bad = sp.patch_problems({"*": {"arg": {}}, "a": {"args": ["--x"]}, "b": {"args": {"max-context": "1", "--y": [1]}},
+                         "c": {"profile": {"prot": 1}}, "d": {"env": {"E": True}}, "e": [], "f": {"set": 3}})
+assert len(bad) == 8, bad
+assert sp.patch_problems([]) and 'unknown' in bad[0] and '"prot"' in bad[4], bad
 print("ok")
