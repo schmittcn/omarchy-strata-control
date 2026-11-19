@@ -52,7 +52,7 @@ The bar icon is dim while no model is ready; its tooltip names the model and its
 |---|---|
 | Header | The served model, its state (starting, ready, stopping) and port. **TUI Monitor** opens `strata monitor` in a terminal; **Web UI** opens the model's chat page in your browser. |
 | Models | Every model Strata knows: id, name, context, size, how much VRAM and RAM it takes on this PC and its space on disk. Click one (or arrows and Enter) to start it; a running model is stopped first. ✓ marks the served one, 󰏫 one your settings change, followed by what they set (its own entries first). |
-| Server | **Stop** frees GPU and RAM. **Monitor** opens the mini monitor. **Log** follows the server log in a terminal. **Check for updates** only asks; when there is one, the button becomes **Install update**, which runs the update in a terminal. |
+| Server | **Stop** frees GPU and RAM. **Monitor** opens the mini monitor. **Log** follows the server log in a terminal. **Check for updates** only asks; when there is one, the button becomes **Install update**, which runs the update in a terminal. **Stop when idle** stops the model after that long without a request; Never keeps it running. |
 | Your settings | **Edit** opens your settings file and applies it when you close the editor. **Apply** applies it now. **Help** shows the format. |
 | Footer | Which Strata answers: version and install folder. |
 
@@ -77,8 +77,8 @@ The running model gets one more line, "in use": what it really takes, measured f
 - Prompt and generation speed now and their averages over the recent requests.
 - Active, queued and the last four requests.
 
-The bar itself checks the state every 30 seconds (setting below). With `idleStop` on, it also stops a model nobody
-has used for a while (see [Widget settings](#widget-settings)).
+The bar itself checks the state every 30 seconds (setting below). With **Stop when idle** set, it also stops a model
+nobody has used for a while.
 
 The popup follows your Omarchy theme:
 
@@ -93,7 +93,9 @@ omarchy-shell io.github.schmittcn.strata-control monitor   # open with the mini 
 
 ## Widget settings
 
-In Omarchy's settings for the widget, or in its entry in `~/.config/omarchy/shell.json`:
+In the widget's entry in `~/.config/omarchy/shell.json`, or with `omarchy bar set`, e.g.
+`omarchy bar set io.github.schmittcn.strata-control refreshIntervalSec 10 --json`. The idle stop also has a slider in
+the popup.
 
 | Setting | Default | Meaning |
 |---|---|---|
