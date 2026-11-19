@@ -65,6 +65,17 @@ Panel {
 
   function refresh() { if (!info.running) info.running = true }
 
+  // Like Keybloom and the shell's Clock: keep the entry's other fields, replace ours, write through the shell's scoped
+  // API (it can only touch this widget's entry, and the widget is not reloaded)
+  function saveSettings(values) {
+    var entry = {}
+    for (var k in settings) if (k !== "id") entry[k] = settings[k]
+    for (var v in values) entry[v] = values[v]
+    settings = entry
+    if (bar && bar.shell && typeof bar.shell.updateEntryInline === "function") bar.shell.updateEntryInline(moduleName, entry)
+    else console.log("[strata-control] cannot write shell.json: the setting lasts for this session only")
+  }
+
   // A start takes minutes: say how it ended when the popup is no longer open to show it.
   function notify(headline, body, url) {
     if (opened) return
@@ -441,6 +452,69 @@ Panel {
                 if (!root.updateAvailable) { root.run("Checking for updates", ["update-check"]); return }
                 root.updateAvailable = false
                 root.inTerminal(root.updateCommand)
+              }
+            }
+          }
+
+          // Stop when idle: fixed stops, equally spaced; the far left is "never" (idleStop off, the minutes kept)
+          Column {
+            id: idleBox
+            readonly property var stops: [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240]
+            readonly property int liveMin: idleSlider.dragging ? stops[Math.round(idleSlider.liveValue)]
+                                                               : (root.idleStop ? root.idleStopMinutes : 0)
+            function label(min) { return min === 0 ? "Never" : min < 60 || min % 60 ? min + " min" : min / 60 + " h" }
+            function nearest(min) {   // a value set by hand may sit between stops
+              var best = 0
+              for (var i = 0; i < stops.length; i++) if (Math.abs(stops[i] - min) < Math.abs(stops[best] - min)) best = i
+              return best
+            }
+            width: parent.width
+            spacing: Style.space(4)
+
+            Item {
+              width: parent.width
+              implicitHeight: idleTitle.implicitHeight
+              Text {
+                id: idleTitle
+                text: "Stop when idle"
+                color: root.fg
+                font.family: root.fontName
+                font.pixelSize: Style.font.bodySmall
+              }
+              Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: idleBox.label(idleBox.liveMin)
+                color: root.fg
+                font.family: root.fontName
+                font.pixelSize: Style.font.bodySmall
+                font.bold: true
+              }
+            }
+            Text {
+              width: parent.width
+              textFormat: Text.PlainText
+              text: idleBox.liveMin === 0 ? "The model keeps running until you stop it"
+                : "Stopped after " + idleBox.label(idleBox.liveMin) + " without a request, to free GPU and RAM"
+              color: root.fg
+              opacity: 0.6
+              font.family: root.fontName
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.Wrap
+            }
+            PanelSlider {
+              id: idleSlider
+              bar: root.bar
+              width: parent.width
+              minimum: 0
+              maximum: idleBox.stops.length - 1
+              step: 1
+              integer: true
+              tickCount: idleBox.stops.length
+              value: root.idleStop ? idleBox.nearest(root.idleStopMinutes) : 0
+              onReleased: function(v) {
+                var min = idleBox.stops[Math.round(v)]
+                root.saveSettings(min === 0 ? { idleStop: false } : { idleStop: true, idleStopMinutes: min })
               }
             }
           }
