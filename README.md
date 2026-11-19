@@ -74,7 +74,8 @@ The running model gets one more line, "in use": what it really takes, measured f
 - Prompt and generation speed now and their averages over the recent requests.
 - Active, queued and the last four requests.
 
-The bar itself checks the state every 30 seconds (setting below).
+The bar itself checks the state every 30 seconds (setting below). With `idleStop` on, it also stops a model nobody
+has used for a while (see [Widget settings](#widget-settings)).
 
 The popup follows your Omarchy theme:
 
@@ -97,6 +98,8 @@ In Omarchy's settings for the widget, or in its entry in `~/.config/omarchy/shel
 | `strataCommand` | `strata` | The strata command to use (see [A source checkout or fork](#a-source-checkout-or-fork)). |
 | `updateCheckCommand` | empty | Command for **Check for updates**; empty means `strata update --check`. Output containing "update available" turns the button into **Install update**. |
 | `updateCommand` | `strata update` | What **Install update** runs in a terminal. |
+| `idleStop` | `false` | Stop the served model after `idleStopMinutes` without a request, to free GPU and RAM. A notification says so. |
+| `idleStopMinutes` | `30` | Minutes without a request before `idleStop` stops the model. Loading it again takes minutes, so do not set it too low. |
 
 ## Your model settings: patches.json
 
@@ -239,6 +242,7 @@ ln -s ~/.config/omarchy/plugins/io.github.schmittcn.strata-control/strata-profil
 strata-profiles apply [ID..]   apply your settings (all models by default)
 strata-profiles start ID       stop what runs, apply ID, start it and wait until it is ready
 strata-profiles stop           stop the running model
+strata-profiles idle-stop MIN  stop the running model if it has had no request for MIN minutes
 strata-profiles edit           create patches.json if missing and print its path
 strata-profiles info           JSON: models and their state
 strata-profiles details        JSON: strata version, size and memory per model
