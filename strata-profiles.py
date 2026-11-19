@@ -443,15 +443,28 @@ def measured(root_pid):
     return {"vram_used_gb": round(vram / 2**30, 1) if vram else None, "ram_used_gb": round(ram / 2**30, 1)}
 
 
+def yours(patches, mid):
+    """What the person's settings change for this model: the flags, variables, config keys and serving settings named."""
+    names = []
+    for p in matching(patches, mid):
+        for part in PARTS:
+            names += [k for k in p.get(part) or {} if k not in names]
+    return names
+
+
 def info():
     found, error = models_or_error()
     out = {"patches": str(PATCHES), "models": [], "error": error}
+    try:
+        patches = load_patches()
+    except SystemExit:
+        patches = {}                            # a broken file: no marks, Apply names the mistakes
     for m in found:
         mid = m["id"]
         st = status(mid)
         entry = {"id": mid, "name": m.get("name", mid), "context": m.get("context_tokens"),
                  "status": m.get("component_status", ""), "state": st.get("state", "stopped"), "url": st.get("api_url", ""),
-                 "log": str(RUNTIME / f"{profile_name(mid)}.server.log")}
+                 "log": str(RUNTIME / f"{profile_name(mid)}.server.log"), "yours": yours(patches, mid)}
         if st.get("child_pid") and entry["state"] != "stopped":
             entry.update(measured(st["child_pid"]))
         out["models"].append(entry)

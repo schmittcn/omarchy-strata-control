@@ -341,7 +341,9 @@ Panel {
               required property var modelData
               required property int index
               title: modelData.id
-              subtitle: [modelData.name, root.contextLabel(modelData.context), modelData.status !== "present" ? "files incomplete" : ""]
+              // 󰏫: patches.json changes this model; what it names, as far as the row has room
+              subtitle: [modelData.name, root.contextLabel(modelData.context), modelData.status !== "present" ? "files incomplete" : "",
+                         (modelData.yours || []).length ? "󰏫 " + modelData.yours.join(", ") : ""]
                 .filter(function(s) { return s !== "" }).join(" · ")
               detail: root.sizeLine(modelData.id)
               live: root.liveLine(modelData)
