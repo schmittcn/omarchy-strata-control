@@ -22,8 +22,8 @@ This plugin is not part of Strata and not made by its authors; it drives Strata'
    **Web UI** opens its chat page, **Monitor** shows what the GPU and CPU are doing, **Stop** frees the memory.
 
 **Before you start:** the plugin only runs models on a Strata that meets its safety requirements (see
-[Privacy](#privacy)): Strata 0.2.11 (2026-11-05) or newer. On an older Strata the plugin stops the model while it
-loads and tells you why and what to change; updating Strata fixes it.
+[Privacy](#privacy)): Strata 0.2.11 (2026-11-05) or newer. On an older Strata the plugin stops the server as soon as it
+starts, before it answers anything, and tells you why and what to change; updating Strata fixes it.
 
 That is all you need. To change how a model runs (context, port, VRAM headroom, ...), press **Edit** under
 "Your settings": see [Your model settings](#your-model-settings-patchesjson).
@@ -38,7 +38,7 @@ That is all you need. To change how a model runs (context, port, VRAM headroom, 
 | `findmnt`, `lsblk` (util-linux, on every Arch install) | the SSD bar in the mini monitor | the SSD bar is left out |
 | ROCm (AMD) or `nvidia-smi` (NVIDIA) | the measured "in use" VRAM | no "in use" line; the estimate stays |
 | a readable RAPL counter | CPU watts | "— W" (see [CPU power](#cpu-power)) |
-| a Strata that meets the plugin's safety requirements (see [Privacy](#privacy)) | starting models | the model is stopped while it loads, with the reason |
+| a Strata that meets the plugin's safety requirements (see [Privacy](#privacy)) | starting models | the server is stopped as soon as it starts, before it answers anything, with the reason |
 
 **Edit** uses `$VISUAL` or `$EDITOR`, else nvim (which Omarchy ships).
 
