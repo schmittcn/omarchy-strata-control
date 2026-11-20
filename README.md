@@ -224,8 +224,9 @@ echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/usr/bin/chmod a+r /sys%p/ener
   [security policy](https://github.com/Niko1221/Strata/blob/main/SECURITY.md)). But it only keeps a model running
   when the Strata that serves it is safe on these points. It checks them in the code and the Python the started
   server actually runs (the server process's folder and interpreter, which can differ from the folder your models are
-  in), while the model is still loading and before the server opens its port. If one fails, it stops the server and
-  says why. Required:
+  in). The moment the server process exists it is frozen (its whole process group: server, engine and picture
+  reader), so it answers nothing while the checks run; it continues only when they all pass. If one fails, or the
+  server already listens on its port, it is killed and the plugin says why. Required:
 
   | Requirement | Why | Fixed in Strata by | Your way out on an older Strata |
   |---|---|---|---|
