@@ -44,7 +44,7 @@ Panel {
     for (var i = 0; i < models.length; i++) if (models[i].state !== "stopped") return models[i]
     return null
   }
-  readonly property bool ready: active !== null && active.state === "ready"
+  readonly property bool ready: active !== null && active.state === "ready" && runningCmd.indexOf("Starting ") !== 0
   readonly property string statusText: runningCmd !== "" ? runningCmd
     : errorText !== "" ? errorText
     : active === null ? "Stopped"

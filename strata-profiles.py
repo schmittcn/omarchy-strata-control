@@ -44,6 +44,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -406,6 +407,35 @@ def refusals(cfg, pid, root):
     return why
 
 
+def signal_server(pid, sig):
+    """Signal the server and everything it started: `strata runtime` starts it in its own session
+    (strata_control/runtime.py), so its pid is its process group; otherwise just the process."""
+    try:
+        if os.getpgid(pid) == pid:
+            os.killpg(pid, sig)
+        else:
+            os.kill(pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def listening(pid):
+    """Does process `pid` have a TCP socket in LISTEN state?"""
+    try:
+        socks = {os.readlink(f).removeprefix("socket:[").rstrip("]") for f in Path(f"/proc/{pid}/fd").iterdir()
+                 if os.readlink(f).startswith("socket:[")}
+    except OSError:
+        return False
+    for t in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            rows = Path(t).read_text().splitlines()[1:]
+        except OSError:
+            continue
+        if any(r.split()[3] == "0A" and r.split()[9] in socks for r in rows):
+            return True
+    return False
+
+
 def start(mid):
     if mid not in {m["id"] for m in models()}:
         sys.exit(f"unknown model {mid}; known: {' '.join(m['id'] for m in models())}")
@@ -416,25 +446,39 @@ def start(mid):
     name = profile_name(mid)
     print(f"starting {mid}, loading can take a few minutes ...", flush=True)
     p = subprocess.Popen([*STRATA, "runtime", "start", "--profile", name, "--wait", "600"])
-    # Which code and which Python serve is only certain once the server process exists.  It loads the model before
-    # it opens its port (serve/server.py), so these checks come before it can take a request.
+    # Which code and which Python serve is only certain once the server process exists.  The moment it does, it is
+    # frozen (SIGSTOP on its process group: the server, its engine and picture reader), so it takes no request while
+    # the checks run; it continues only when they pass, else it is killed.  It loads the model before it opens its
+    # port (serve/server.py), so it is frozen long before that; one already listening is refused all the same.
     proc, deadline = None, time.monotonic() + 120
     while proc is None and p.poll() is None and time.monotonic() < deadline:
         proc = serving_process(name)
         if proc is None:
-            time.sleep(0.2)
+            time.sleep(0.05)
     if proc is None and p.poll() in (None, 0):
         proc = serving_process(name)
     if proc is None and p.poll() not in (None, 0):
         sys.exit(p.returncode)                  # it did not start: nothing serves
-    why = refusals(cfg, *proc) if proc else ["the server process to check could not be found."]
+    if proc:
+        signal_server(proc[0], signal.SIGSTOP)
+        try:
+            why = refusals(cfg, *proc)
+            if listening(proc[0]):
+                why.append("the server opened its port before it could be checked.")
+        except Exception as e:                  # a check that cannot run is a refusal
+            why = [f"the safety checks failed: {e}"]
+    else:
+        why = ["the server process to check could not be found."]
     if why:
         print(f"stopping {mid} ...", flush=True)
-        strata("runtime", "stop", "--profile", name, "--wait", "60", check=False)   # a server stopped while loading reports server_stop_failed
+        if proc:
+            signal_server(proc[0], signal.SIGKILL)   # frozen, it could not drain for `runtime stop`
+        strata("runtime", "stop", "--profile", name, "--wait", "60", check=False)   # the host's record of it
         p.wait()
         now = strata_json("runtime", "status", "--profile", name).get("state", "unknown")
         sys.exit(f"{mid} {'stopped' if now == 'stopped' else 'NOT stopped (' + now + ')'}, because\n- "
                  + "\n- ".join(why) + "\nSee Privacy in the plugin's README.")
+    signal_server(proc[0], signal.SIGCONT)
     sys.exit(p.wait())
 
 

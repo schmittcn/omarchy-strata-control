@@ -103,6 +103,28 @@ with tempfile.TemporaryDirectory() as d:
     assert len(sp.refusals({"images": {"exe": "sd-cli"}}, 1, d)) == 1     # no serve/images.py here
     sp.server_pillow = real_pillow
 
+# the server is frozen while it is checked: its whole group (own session, as `strata runtime` starts it)
+import signal
+import subprocess
+import time
+srv = subprocess.Popen([sys.executable, "-c", "import socket, subprocess, sys, time\n"
+                        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+                        "s = socket.socket(); s.bind(('127.0.0.1', 0)); s.listen(); print(c.pid, flush=True); time.sleep(60)"],
+                       start_new_session=True, stdout=subprocess.PIPE, text=True)
+child = int(srv.stdout.readline())
+state = lambda pid: Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+assert sp.listening(srv.pid) and not sp.listening(os.getpid())
+sp.signal_server(srv.pid, signal.SIGSTOP)
+for _ in range(50):
+    if state(srv.pid) == state(child) == "T":
+        break
+    time.sleep(0.02)
+assert state(srv.pid) == state(child) == "T", (state(srv.pid), state(child))   # the engine stops with the server
+sp.signal_server(srv.pid, signal.SIGCONT)
+sp.signal_server(srv.pid, signal.SIGKILL)
+assert srv.wait(5) == -signal.SIGKILL
+sp.signal_server(srv.pid, signal.SIGKILL)                                # gone already: no error
+
 # the strata command: a checkout folder (0.2.16 terminal/ layout or older), and an old command after the layout move
 import tempfile
 from pathlib import Path
